@@ -1,0 +1,14 @@
+#!/bin/bash
+
+indent() {
+  sed -u 's/^/       /'
+}
+
+echo "-----> Downloading brew"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" | indent
+
+echo "-----> Installing CDO"
+brew install cdo | indent
+
+echo "-----> HDF5, NetCDF and ecCodes have been installed along CDO."
+echo ""
