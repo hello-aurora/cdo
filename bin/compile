@@ -1,14 +1,304 @@
 #!/bin/bash
 
-indent() {
+function indent() {
   sed -u 's/^/       /'
 }
 
-echo "-----> Downloading brew"
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" | indent
+function log() {
+  message=$1
 
-echo "-----> Installing CDO"
-brew install cdo | indent
+  echo " "
+  echo "-----> ${message}"
+}
 
-echo "-----> HDF5, NetCDF and ecCodes have been installed along CDO."
-echo ""
+# Toggle tests for libraries
+ENABLE_TESTS=false
+
+# Heroku buildpack env
+BUILD_DIR=$1
+CACHE_DIR=$2
+VENDOR_DIR="${BUILD_DIR}/vendor"
+
+# CDO install env
+CDO_INSTALL_PATH="cdo-install"
+CDO_INSTALL_DIR="${VENDOR_DIR}/${CDO_INSTALL_PATH}"
+CDO_TAR="${CDO_INSTALL_PATH}.tar.gz"
+CDO_CACHE_FILE="${CACHE_DIR}/${CDO_TAR}"
+
+log "Installing CDO"
+echo "${CDO_INSTALL_DIR}" | indent
+
+# Libraries versions
+SZIP_VERSION="2.1.1" # https://support.hdfgroup.org/doc_resource/SZIP/
+ZLIB_VERSION="1.2.11" # http://www.zlib.net
+HDF5_VERSION="1.12.1" # https://support.hdfgroup.org/ftp/HDF5/releases
+NETCDF_VERSION="4.8.1" # https://www.unidata.ucar.edu/downloads/netcdf
+ECCODES_VERSION="2.23.0" # https://confluence.ecmwf.int/display/ECC/Releases
+CDO_VERSION="1.9.10" # https://code.mpimet.mpg.de/projects/cdo/files
+CDO_VERSION_HASH="24638"
+
+# Libraies directories
+SZIP_PATH="zlib-${SZIP_VERSION}"
+ZLIB_PATH="zlib-${ZLIB_VERSION}"
+HDF5_PATH="hdf5-${HDF5_VERSION}"
+NETCDF_PATH="netcdf-c-${NETCDF_VERSION}"
+ECCODES_PATH="eccodes-${ECCODES_VERSION}-Source"
+CDO_PATH="cdo-${CDO_VERSION}"
+
+function runIf() {
+  if [ ${ENABLE_TESTS} = true ]; then
+    $1
+  fi
+}
+
+function inreplace() {
+  file=$1
+  before=$2
+  after=$3
+
+  sed -i 's/${before}/${after}/' ${file}
+}
+
+function prepare() {
+  log "Moving to installation directory"
+  mkdir -p ${CDO_INSTALL_DIR}
+  cd ${CDO_INSTALL_DIR}
+}
+
+function installSzip() {
+  log "Downloading SZIP"
+  wget https://support.hdfgroup.org/ftp/lib-external/szip/${SZIP_VERSION}/src/szip-${SZIP_VERSION}.tar.gz -P . | indent
+
+  log "Extracting SZIP"
+  tar -xzvf szip-${SZIP_VERSION}.tar.gz
+
+  cd szip-${SZIP_VERSION}
+
+  log "Configuring SZIP"
+  ./configure \
+  --prefix=${CDO_INSTALL_DIR}
+
+  log "Installing SZIP"
+  make
+  runIf $(make check)
+  make install
+
+  cd -
+}
+
+function installZlib() {
+  log "Downloading Zlib"
+  wget http://www.zlib.net/zlib-${ZLIB_VERSION}.tar.gz -P . | indent
+
+  log "Extracting Zlib"
+  tar -xzvf zlib-${ZLIB_VERSION}.tar.gz
+
+  cd zlib-${ZLIB_VERSION}
+
+  log "Configuring Zlib"
+  ./configure \
+  --prefix=${CDO_INSTALL_DIR}
+
+  log "Installing Zlib"
+  make
+  runIf $(make check)
+  make install
+
+  cd -
+}
+
+function installHdf5() {
+  log "Downloading HDF5"
+  HDF5_BASE_VERSION=${HDF5_VERSION::-2}
+  wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_BASE_VERSION}/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz -P . | indent
+
+  log "Extracting HDF5"
+  tar -xzvf hdf5-${HDF5_VERSION}.tar.gz
+
+  cd hdf5-${HDF5_VERSION}
+
+  log "Replacing values"
+  inreplace c++/src/h5c++.in "\${libdir}\/libhdf5.settings" "${CDO_INSTALL_DIR}/libhdf5.settings"
+  inreplace fortran/src/h5fc.in "\${libdir}\/libhdf5.settings" "${CDO_INSTALL_DIR}/libhdf5.settings"
+  inreplace bin/h5cc.in "\${libdir}\/libhdf5.settings" "${CDO_INSTALL_DIR}/libhdf5.settings"
+  inreplace src/Makefile.am "settingsdir=\$\(libdir\)" "settingsdir=${CDO_INSTALL_DIR}"
+
+  log "Configuring HDF5"
+  CFLAGS=-fPIC \
+  ./configure \
+  --disable-dependency-tracking \
+  --disable-silent-rules \
+  --prefix=${CDO_INSTALL_DIR} \
+  --with-zlib \
+  --enable-threadsafe \
+  --disable-hl \
+  --enable-build-mode=production
+
+  log "Installing HDF5"
+  make
+  runIf $(make check)
+  make install
+
+  log "Running apt libcurl4"
+  apt install libcurl4-gnutls-dev -y
+
+  cd -
+}
+
+function installNetcdf() {
+  log "Downloading NetCDF"
+  wget https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_VERSION}/src/netcdf-c-${NETCDF_VERSION}.tar.gz -P . | indent
+
+  log "Extracting NetCDF"
+  tar -xzvf netcdf-c-${NETCDF_VERSION}.tar.gz
+
+  cd netcdf-c-${NETCDF_VERSION}
+
+  log "Configuring NetCDF"
+  # TODO --with-hdf5=${CDO_INSTALL_DIR}
+  CPPFLAGS="-I${CDO_INSTALL_DIR}/include" \
+  LDFLAGS="-L${CDO_INSTALL_DIR}/lib" \
+  ./configure \
+  --disable-hdf5 \
+  --prefix=${CDO_INSTALL_DIR} \
+  CFLAGS=-fPIC
+
+  log "Installing NetCDF"
+  make
+  runIf $(make check)
+  make install
+
+  cd -
+}
+
+function installEccodes() {
+  log "Downloading ecCodes"
+  wget https://confluence.ecmwf.int/download/attachments/45757960/eccodes-${ECCODES_VERSION}-Source.tar.gz -P . | indent
+
+  log "Extracting ecCodes"
+  tar -xzvf eccodes-${ECCODES_VERSION}-Source.tar.gz
+
+  cd eccodes-${ECCODES_VERSION}-Source
+
+  mkdir build
+  cd build
+
+  log "Configuring ecCodes"
+  cmake \
+  -DENABLE_NETCDF=ON \
+  -DENABLE_PNG=ON \
+  -DENABLE_PYTHON=OFF \
+  -DENABLE_ECCODES_THREADS=ON \
+  -DENABLE_FORTRAN=OFF \
+  -DCMAKE_INSTALL_PREFIX=${CDO_INSTALL_DIR} \
+  "../"
+
+  log "Installing ecCodes"
+  make
+  runIf $(ctest)
+  make install
+
+  cd ../..
+}
+
+function installCdo() {
+  log "Downloading cdo"
+  wget https://code.mpimet.mpg.de/attachments/download/${CDO_VERSION_HASH}/cdo-${CDO_VERSION}.tar.gz -P . | indent
+
+  log "Extracting cdo"
+  tar -xzvf cdo-${CDO_VERSION}.tar.gz
+
+  cd cdo-${CDO_VERSION}
+
+  log "Configuring cdo"
+  # TODO --with-hdf5=${CDO_INSTALL_DIR}
+  ./configure \
+  CFLAGS=-fPIC \
+  --disable-dependency-tracking \
+  --prefix=${CDO_INSTALL_DIR} \
+  --with-netcdf=${CDO_INSTALL_DIR} \
+  --with-eccodes=${CDO_INSTALL_DIR} \
+  --with-zlib=${CDO_INSTALL_DIR}
+
+  log "Installing cdo"
+  make
+  runIf $(make check)
+  make install
+
+  cd -
+}
+
+function install() {
+  log "Starting install"
+  installSzip
+  installZlib
+  installHdf5
+  installNetcdf
+  installEccodes
+  installCdo
+}
+
+function clean() {
+  log "Removing tar files"
+  rm ${CDO_INSTALL_DIR}/${SZIP_PATH}.tar.gz \
+     ${CDO_INSTALL_DIR}/${ZLIB_PATH}.tar.gz \
+     ${CDO_INSTALL_DIR}/${HDF5_PATH}.tar.gz \
+     ${CDO_INSTALL_DIR}/${NETCDF_PATH}.tar.gz \
+     ${CDO_INSTALL_DIR}/${ECCODES_PATH}.tar.gz \
+     ${CDO_INSTALL_DIR}/${CDO_PATH}.tar.gz
+}
+
+function cache() {
+  log "Setting cache for CDO installation"
+  cd ${VENDOR_DIR}
+  tar czf ${CDO_TAR} ${CDO_INSTALL_PATH}
+
+  if [ ! -d ${CACHE_DIR} ]; then
+    mkdir -p ${CACHE_DIR}
+  fi
+
+  mv ${CDO_TAR} ${CDO_CACHE_FILE}
+}
+
+function extract() {
+  log "Extracting CDO"
+  echo "${CDO_CACHE_FILE} => ${VENDOR_DIR}" | indent
+
+  mkdir -p ${VENDOR_DIR}
+  tar -xzf ${CDO_CACHE_FILE} -C ${VENDOR_DIR} | indent
+}
+
+if [ ! -f "$CDO_CACHE_FILE" ]; then
+  prepare
+  install
+  clean
+  cache
+else
+  extract
+fi
+
+log "Creating runtime environment"
+PROFILE_PATH="${BUILD_DIR}/.profile.d/${CDO_INSTALL_PATH}.sh"
+INSTALL_PATH="${HOME}/vendor/${CDO_INSTALL_PATH}"
+ECCODES="${HOME}/vendor/${CDO_INSTALL_PATH}/${ECCODES_PATH}"
+
+mkdir -p $(dirname ${PROFILE_PATH})
+
+echo "export PATH=${INSTALL_PATH}/bin:\${PATH}" >> ${PROFILE_PATH}
+echo "export LD_LIBRARY_PATH=${INSTALL_PATH}/lib:\${LD_LIBRARY_PATH}:/usr/local/lib" >> ${PROFILE_PATH}
+echo "export MAGICK_CONFIGURE_PATH=${INSTALL_PATH}" >> ${PROFILE_PATH}
+echo "export ECCODES_DEFINITION_PATH=${ECCODES}/definitions" >> ${PROFILE_PATH}
+
+echo "SZIP_VERSION ${SZIP_VERSION}" | indent
+echo "ZLIB_VERSION ${ZLIB_VERSION}" | indent
+echo "HDF5_VERSION ${HDF5_VERSION}" | indent
+echo "NETCDF_VERSION ${NETCDF_VERSION}" | indent
+echo "ECCODES_VERSION ${ECCODES_VERSION}" | indent
+echo "CDO_VERSION ${CDO_VERSION}" | indent
+echo "CDO_INSTALL_DIR ${CDO_INSTALL_DIR}" | indent
+echo "CDO_CACHE_FILE ${CDO_CACHE_FILE}" | indent
+echo "PROFILE_PATH ${PROFILE_PATH}" | indent
+
+log "Runtime configured"
+echo "- CDO with SZIP, ZLIB, HDF5, NetCDF and ecCodes" | indent
+echo " "
