@@ -29,7 +29,6 @@ log "Installing CDO"
 echo "${CDO_INSTALL_DIR}" | indent
 
 # Libraries versions
-SZIP_VERSION="2.1.1" # https://support.hdfgroup.org/doc_resource/SZIP/
 ZLIB_VERSION="1.2.11" # http://www.zlib.net
 HDF5_VERSION="1.12.1" # https://support.hdfgroup.org/ftp/HDF5/releases
 NETCDF_VERSION="4.8.1" # https://www.unidata.ucar.edu/downloads/netcdf
@@ -38,7 +37,6 @@ CDO_VERSION="1.9.10" # https://code.mpimet.mpg.de/projects/cdo/files
 CDO_VERSION_HASH="24638"
 
 # Libraies directories
-SZIP_PATH="zlib-${SZIP_VERSION}"
 ZLIB_PATH="zlib-${ZLIB_VERSION}"
 HDF5_PATH="hdf5-${HDF5_VERSION}"
 NETCDF_PATH="netcdf-c-${NETCDF_VERSION}"
@@ -63,27 +61,6 @@ function prepare() {
   log "Moving to installation directory"
   mkdir -p ${CDO_INSTALL_DIR}
   cd ${CDO_INSTALL_DIR}
-}
-
-function installSzip() {
-  log "Downloading SZIP"
-  wget https://support.hdfgroup.org/ftp/lib-external/szip/${SZIP_VERSION}/src/szip-${SZIP_VERSION}.tar.gz -P . | indent
-
-  log "Extracting SZIP"
-  tar -xzvf szip-${SZIP_VERSION}.tar.gz
-
-  cd szip-${SZIP_VERSION}
-
-  log "Configuring SZIP"
-  ./configure \
-  --prefix=${CDO_INSTALL_DIR}
-
-  log "Installing SZIP"
-  make
-  runIf $(make check)
-  make install
-
-  cd -
 }
 
 function installZlib() {
@@ -124,14 +101,11 @@ function installHdf5() {
   inreplace src/Makefile.am "settingsdir=\$\(libdir\)" "settingsdir=${CDO_INSTALL_DIR}"
 
   log "Configuring HDF5"
-  CFLAGS=-fPIC \
   ./configure \
   --disable-dependency-tracking \
   --disable-silent-rules \
   --prefix=${CDO_INSTALL_DIR} \
-  --with-zlib \
-  --enable-threadsafe \
-  --disable-hl \
+  --with-zlib=${CDO_INSTALL_DIR} \
   --enable-build-mode=production
 
   log "Installing HDF5"
@@ -155,11 +129,9 @@ function installNetcdf() {
   cd netcdf-c-${NETCDF_VERSION}
 
   log "Configuring NetCDF"
-  # TODO --with-hdf5=${CDO_INSTALL_DIR}
   CPPFLAGS="-I${CDO_INSTALL_DIR}/include" \
   LDFLAGS="-L${CDO_INSTALL_DIR}/lib" \
   ./configure \
-  --disable-hdf5 \
   --prefix=${CDO_INSTALL_DIR} \
   CFLAGS=-fPIC
 
@@ -211,7 +183,6 @@ function installCdo() {
   cd cdo-${CDO_VERSION}
 
   log "Configuring cdo"
-  # TODO --with-hdf5=${CDO_INSTALL_DIR}
   ./configure \
   CFLAGS=-fPIC \
   --disable-dependency-tracking \
@@ -230,7 +201,6 @@ function installCdo() {
 
 function install() {
   log "Starting install"
-  installSzip
   installZlib
   installHdf5
   installNetcdf
@@ -240,8 +210,7 @@ function install() {
 
 function clean() {
   log "Removing tar files"
-  rm ${CDO_INSTALL_DIR}/${SZIP_PATH}.tar.gz \
-     ${CDO_INSTALL_DIR}/${ZLIB_PATH}.tar.gz \
+  rm ${CDO_INSTALL_DIR}/${ZLIB_PATH}.tar.gz \
      ${CDO_INSTALL_DIR}/${HDF5_PATH}.tar.gz \
      ${CDO_INSTALL_DIR}/${NETCDF_PATH}.tar.gz \
      ${CDO_INSTALL_DIR}/${ECCODES_PATH}.tar.gz \
@@ -289,7 +258,6 @@ echo "export LD_LIBRARY_PATH=${INSTALL_PATH}/lib:\${LD_LIBRARY_PATH}:/usr/local/
 echo "export MAGICK_CONFIGURE_PATH=${INSTALL_PATH}" >> ${PROFILE_PATH}
 echo "export ECCODES_DEFINITION_PATH=${ECCODES}/definitions" >> ${PROFILE_PATH}
 
-echo "SZIP_VERSION ${SZIP_VERSION}" | indent
 echo "ZLIB_VERSION ${ZLIB_VERSION}" | indent
 echo "HDF5_VERSION ${HDF5_VERSION}" | indent
 echo "NETCDF_VERSION ${NETCDF_VERSION}" | indent
@@ -300,5 +268,5 @@ echo "CDO_CACHE_FILE ${CDO_CACHE_FILE}" | indent
 echo "PROFILE_PATH ${PROFILE_PATH}" | indent
 
 log "Runtime configured"
-echo "- CDO with SZIP, ZLIB, HDF5, NetCDF and ecCodes" | indent
+echo "- CDO with ZLIB, HDF5, NetCDF and ecCodes" | indent
 echo " "
