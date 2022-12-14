@@ -29,7 +29,7 @@ log "Installing CDO"
 echo "${CDO_INSTALL_DIR}" | indent
 
 # Libraries versions
-ZLIB_VERSION="1.2.11" # http://www.zlib.net
+ZLIB_VERSION="1.2.13" # http://www.zlib.net
 HDF5_VERSION="1.12.1" # https://support.hdfgroup.org/ftp/HDF5/releases
 NETCDF_VERSION="4.8.1" # https://www.unidata.ucar.edu/downloads/netcdf
 ECCODES_VERSION="2.23.0" # https://confluence.ecmwf.int/display/ECC/Releases
