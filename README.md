@@ -1,16 +1,6 @@
-# heroku-buildpack-cdo
+# CDO
 
-This is a [Heroku buildpack](http://devcenter.heroku.com/articles/buildpacks) working with [`heroku-20`](https://devcenter.heroku.com/articles/stack) for vendoring the [cdo](https://code.mpimet.mpg.de/projects/cdo) library into your project.
-
-## Install
-
-In your project root:
-
-`heroku buildpacks:add https://github.com/hello-aurora/cdo --index 1 --app HEROKU_APP_NAME`
-
-## Usage
-
-This buildpack install CDO and its required dependencies.
+Buildpack for vendoring the [cdo](https://code.mpimet.mpg.de/projects/cdo) library into your project. Can be used with [Heroku](https://www.heroku.com) or [Dokku](https://dokku.com/).
 
 After the installation process, you will be able to access the following libraries:
 
@@ -22,9 +12,33 @@ After the installation process, you will be able to access the following librari
 
 > CDO requires a lot of memory. You might at least need a dyno with > 1GO of RAM.
 
+## Installation
+
+Heroku:
+
+```bash
+heroku buildpacks:add https://github.com/hello-aurora/cdo --index 1 --app <APP_NAME>
+```
+
+Dokku:
+
+```bash
+dokku buildpacks:add --index 1 <APP_NAME> https://github.com/hello-aurora/cdo
+```
+
 ## Clear cache
 
 Since the installation is cached you might want to clean it out due to config changes.
 
-1. `heroku plugins:install heroku-repo`
-2. `heroku repo:purge_cache --app HEROKU_APP_NAME`
+Heroku:
+
+```bash
+heroku plugins:install heroku-repo
+heroku repo:purge_cache --app <APP_NAME>
+```
+
+Dokku:
+
+```bash
+dokku repo:purge-cache <APP_NAME>
+```
