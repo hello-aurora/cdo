@@ -31,7 +31,7 @@ echo "${CDO_INSTALL_DIR}" | indent
 # Libraries versions
 ZLIB_VERSION="1.2.13" # http://www.zlib.net
 HDF5_VERSION="1.12.1" # https://support.hdfgroup.org/ftp/HDF5/releases
-NETCDF_VERSION="4.8.1" # https://www.unidata.ucar.edu/downloads/netcdf
+NETCDF_VERSION="4.8.1" # https://www.unidata.ucar.edu/software/netcdf
 ECCODES_VERSION="2.23.0" # https://confluence.ecmwf.int/display/ECC/Releases
 CDO_VERSION="1.9.10" # https://code.mpimet.mpg.de/projects/cdo/files
 CDO_VERSION_HASH="24638"
@@ -121,7 +121,7 @@ function installHdf5() {
 
 function installNetcdf() {
   log "Downloading NetCDF"
-  wget https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_VERSION}/src/netcdf-c-${NETCDF_VERSION}.tar.gz -P . | indent
+  wget https://downloads.unidata.ucar.edu/netcdf-c/${NETCDF_VERSION}/netcdf-c-${NETCDF_VERSION}.tar.gz -P . | indent
 
   log "Extracting NetCDF"
   tar -xzvf netcdf-c-${NETCDF_VERSION}.tar.gz
