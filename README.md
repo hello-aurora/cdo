@@ -10,7 +10,7 @@ After the installation process, you will be able to access the following librari
 - [ecCodes](https://confluence.ecmwf.int/display/ECC)
 - [CDO](https://code.mpimet.mpg.de/projects/cdo)
 
-> CDO requires a lot of memory. You might at least need a dyno with > 1GO of RAM.
+> CDO requires a lot of memory. You might need > 1GO of RAM.
 
 ## Installation
 
