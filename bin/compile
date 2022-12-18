@@ -73,8 +73,7 @@ function installZlib() {
   cd zlib-${ZLIB_VERSION}
 
   log "Configuring Zlib"
-  ./configure \
-  --prefix=${CDO_INSTALL_DIR}
+  ./configure --prefix=${CDO_INSTALL_DIR}
 
   log "Installing Zlib"
   make
@@ -255,8 +254,8 @@ mkdir -p $(dirname ${PROFILE_PATH})
 
 echo "export PATH=${INSTALL_PATH}/bin:\${PATH}" >> ${PROFILE_PATH}
 echo "export LD_LIBRARY_PATH=${INSTALL_PATH}/lib:\${LD_LIBRARY_PATH}:/usr/local/lib" >> ${PROFILE_PATH}
-echo "export MAGICK_CONFIGURE_PATH=${INSTALL_PATH}" >> ${PROFILE_PATH}
 echo "export ECCODES_DEFINITION_PATH=${ECCODES}/definitions" >> ${PROFILE_PATH}
+echo "export ECCODES_SAMPLES_PATH=${ECCODES}/samples" >> ${PROFILE_PATH}
 
 echo "ZLIB_VERSION ${ZLIB_VERSION}" | indent
 echo "HDF5_VERSION ${HDF5_VERSION}" | indent
